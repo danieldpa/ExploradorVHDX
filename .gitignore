@@ -1,0 +1,15 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Build .NET/C++
+bin/
+obj/
+
+# Pastas de saída da sua lib nativa
+x64/
+VHDXNativeLib/build/   # se sua lib gera DLLs ou libs aí
+
+# Arquivos temporários
+*.log
