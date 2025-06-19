@@ -36,7 +36,7 @@ msbuild ExploradorVHDX.sln /p:Configuration=Release /p:Platform=x64
 ExploradorVHDX.exe
 ```
 
-2. O programa monta automaticamente o VHDX configurado (por padrão em `C:\TrabalhoSO\MeuTeste.vhdx`) na unidade `E:`.
+2. O programa permite você escolher a pasta onde estão os VHDX e escolher entre eles.
 3. No menu interativo:
 
    * `[1]` Mudar diretório
@@ -44,5 +44,3 @@ ExploradorVHDX.exe
    * `[3]` Criar arquivo
    * `[4]` Criar pasta
    * `[0]` Sair
-
-Para alterar o caminho do VHDX, edite a constante `vhdx` no `main.cpp`.
