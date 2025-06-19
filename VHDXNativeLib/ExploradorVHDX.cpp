@@ -42,14 +42,14 @@ bool AttachVHDX(const std::wstring& path, HANDLE& vhdHandleOut) {
     DWORD result = OpenVirtualDisk(&storageType, path.c_str(), VIRTUAL_DISK_ACCESS_ALL,
         OPEN_VIRTUAL_DISK_FLAG_NONE, &openParams, &vhdHandle);
     if (result != ERROR_SUCCESS) {
-        std::wcerr << L"[ERRO] OpenVirtualDisk falhou. Código: " << result << std::endl;
+        std::wcerr << L"[ERRO] OpenVirtualDisk falhou. Coigo: " << result << std::endl;
         return false;
     }
     ATTACH_VIRTUAL_DISK_PARAMETERS attachParams = {};
     attachParams.Version = ATTACH_VIRTUAL_DISK_VERSION_1;
     result = AttachVirtualDisk(vhdHandle, nullptr, ATTACH_VIRTUAL_DISK_FLAG_NONE, 0, &attachParams, nullptr);
     if (result != ERROR_SUCCESS) {
-        std::wcerr << L"[ERRO] AttachVirtualDisk falhou. Código: " << result << std::endl;
+        std::wcerr << L"[ERRO] AttachVirtualDisk falhou. Codigo: " << result << std::endl;
         CloseHandle(vhdHandle);
         return false;
     }
@@ -81,10 +81,10 @@ void CriarArquivo(const std::wstring& currentDir) {
     std::wstring caminho = currentDir + L"\\" + nome;
     std::wofstream file(caminho);
     if (!file) {
-        std::wcerr << L"[ERRO] Não foi possível criar: " << caminho << std::endl;
+        std::wcerr << L"[ERRO] Nao foi possivel criar: " << caminho << std::endl;
         return;
     }
-    std::wcout << L"Conteúdo (enter para terminar):\n";
+    std::wcout << L"Conteudo (enter para terminar):\n";
     std::wstring conteudo;
     std::getline(std::wcin, conteudo);
     file << conteudo;
@@ -100,7 +100,7 @@ void CriarPasta(const std::wstring& currentDir) {
         if (std::filesystem::create_directory(caminho))
             std::wcout << L"Pasta criada: " << caminho << std::endl;
         else
-            std::wcerr << L"[ERRO] Não foi possível criar a pasta (talvez exista)." << std::endl;
+            std::wcerr << L"[ERRO] Nao foi possivel criar a pasta." << std::endl;
     }
     catch (const std::filesystem::filesystem_error& e) {
         std::wcerr << L"[ERRO] " << e.what() << std::endl;
@@ -118,7 +118,7 @@ void MudarDiretorio(std::wstring& currentDir) {
         fs::path novo = currentDir;
         currentDir = novo.parent_path();
 
-        std::wcout << L"Diretório atual: " << currentDir << std::endl;
+        std::wcout << L"Diretorio atual: " << currentDir << std::endl;
         return;
     }
 
@@ -127,38 +127,107 @@ void MudarDiretorio(std::wstring& currentDir) {
         : fs::path(currentDir) / alvo;
     if (fs::exists(novo) && fs::is_directory(novo)) {
         currentDir = novo.wstring();
-        std::wcout << L"Diretório atual: " << currentDir << std::endl;
+        std::wcout << L"Diretorio atual: " << currentDir << std::endl;
     }
     else {
-        std::wcerr << L"[ERRO] Diretório não encontrado." << std::endl;
+        std::wcerr << L"[ERRO] Diretorio nao encontrado." << std::endl;
     }
 }
+
+std::wstring DetectarNovaUnidade(DWORD antes, DWORD depois) {
+    for (int i = 0; i < 26; ++i) {
+        DWORD mask = (1 << i);
+        if (!(antes & mask) && (depois & mask)) {
+            wchar_t letra = L'A' + i;
+            return std::wstring(1, letra) + L":";
+        }
+    }
+    return L"";
+}
+
 
 int main() {
     _setmode(_fileno(stdout), _O_U16TEXT);
     _setmode(_fileno(stdin), _O_U16TEXT);
+
     if (!IsRunningAsAdmin()) {
         std::wcerr << L"Execute como Administrador." << std::endl;
         return 1;
     }
-    const std::wstring vhdx = L"C:\\TrabalhoSO\\MeuTeste.vhdx";
-    HANDLE handle;
-    if (!AttachVHDX(vhdx, handle)) return 1;
-    std::wstring currentDir = L"E:";
-    std::wcout << L"Unidade montada em: " << currentDir << std::endl;
-    int opcao;
-    do {
-        std::wcout << L"\n[1] Mudar Diretorio  [2] listar [3] criar arquivo [4] criar pasta [0] sair: ";
-        std::wcin >> opcao;
-        std::wcin.ignore(std::numeric_limits<std::streamsize>::max(), L'\n');
-        switch (opcao) {
-        case 1: MudarDiretorio(currentDir); break;
-        case 2: ListarArquivos(currentDir); break;
-        case 3: CriarArquivo(currentDir); break;
-        case 4: CriarPasta(currentDir); break;
-        case 0: std::wcout << L"Saindo..." << std::endl; break;
-        default: std::wcout << L"Opção inválida." << std::endl; break;
+
+    // Estado inicial das unidades
+    DWORD unidadesAntes = GetLogicalDrives();
+
+    // Etapa 1 – Escolher pasta
+    std::wstring pasta;
+    std::wcout << L"Digite o caminho da pasta onde estao os arquivos VHDX: ";
+    std::getline(std::wcin, pasta);
+
+    namespace fs = std::filesystem;
+    std::vector<std::wstring> arquivosVHDX;
+
+    try {
+        for (const auto& entry : fs::directory_iterator(pasta)) {
+            if (entry.path().extension() == L".vhdx") {
+                arquivosVHDX.push_back(entry.path().wstring());
+            }
         }
-    } while (opcao != 0);
+
+        if (arquivosVHDX.empty()) {
+            std::wcerr << L"Nenhum arquivo VHDX encontrado na pasta." << std::endl;
+            return 1;
+        }
+
+        std::wcout << L"\nArquivos VHDX encontrados:\n";
+        for (size_t i = 0; i < arquivosVHDX.size(); ++i) {
+            std::wcout << L"[" << i << L"] " << arquivosVHDX[i] << std::endl;
+        }
+
+        int escolha = -1;
+        std::wcout << L"\nDigite o numero do VHDX que deseja montar: ";
+        std::wcin >> escolha;
+        std::wcin.ignore(std::numeric_limits<std::streamsize>::max(), L'\n');
+
+        if (escolha < 0 || escolha >= static_cast<int>(arquivosVHDX.size())) {
+            std::wcerr << L"Escolha invalida." << std::endl;
+            return 1;
+        }
+
+        const std::wstring& vhdx = arquivosVHDX[escolha];
+        HANDLE handle;
+        if (!AttachVHDX(vhdx, handle)) return 1;
+
+        Sleep(1000);
+        DWORD unidadesDepois = GetLogicalDrives();
+        std::wstring novaUnidade = DetectarNovaUnidade(unidadesAntes, unidadesDepois);
+        if (novaUnidade.empty()) {
+            std::wcerr << L"[ERRO] Nao foi possivel detectar a unidade montada." << std::endl;
+            return 1;
+        }
+
+        std::wstring currentDir = novaUnidade;
+        std::wcout << L"Unidade montada em: " << currentDir << std::endl;
+
+        int opcao;
+        do {
+        std::wcout << L"\n[1] Mudar Diretorio  [2] listar [3] criar arquivo [4] criar pasta [0] sair: ";
+            std::wcin >> opcao;
+            std::wcin.ignore(std::numeric_limits<std::streamsize>::max(), L'\n');
+            switch (opcao) {
+            case 1: MudarDiretorio(currentDir); break;
+            case 2: ListarArquivos(currentDir); break;
+            case 3: CriarArquivo(currentDir); break;
+            case 4: CriarPasta(currentDir); break;
+            case 0: std::wcout << L"Saindo..." << std::endl; break;
+            default: std::wcout << L"Opcao invalida." << std::endl; break;
+            }
+        } while (opcao != 0);
+    }
+    catch (const std::filesystem::filesystem_error& e) {
+        std::wcerr << L"[ERRO] " << e.what() << std::endl;
+        return 1;
+    }
+
     return 0;
 }
+
